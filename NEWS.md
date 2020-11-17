@@ -95,6 +95,8 @@ New library functions
 * New function `insorted` for determining whether an element is in a sorted collection or not ([#37490]).
 * New function `Base.rest` for taking the rest of a collection, starting from a specific
   iteration state, in a generic way ([#37410]).
+* New function `ni(collection, item)` that calls `in(item, collection)`. This is especially convenient
+  in its one-argument form, `ni(item)` or `∋(item)` ([#38475]).
 
 New library features
 --------------------
@@ -110,6 +112,8 @@ New library features
 * `keys(io::IO)` has been added, which returns all keys of `io` if `io` is an `IOContext` and an empty
   `Base.KeySet` otherwise ([#37753]).
 * `count` now accepts an optional `init` argument to control the accumulation type ([#37461]).
+* New method `occursin(haystack)` that returns a function that checks whether its argument occurs in
+  `haystack` ([#38475]).
 
 Standard library changes
 ------------------------

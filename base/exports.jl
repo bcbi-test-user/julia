@@ -514,6 +514,7 @@ export
     getkey,
     haskey,
     in,
+    ni,
     intersect!,
     intersect,
     isdisjoint,
