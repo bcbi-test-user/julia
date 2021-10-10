@@ -79,6 +79,7 @@ end
 # The goal of this function is to return a type of greater "size" and less "complexity" than
 # both `t` or `c` over the lattice defined by `sources`, `depth`, and `allowed_tuplelen`.
 function _limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVector, depth::Int, allowed_tuplelen::Int)
+    @assert !isvarargtype(t) "unhandled Vararg"
     if t === c
         return t # quick egal test
     elseif t === Union{}
@@ -120,13 +121,6 @@ function _limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVec
             b = _limit_type_size(t.b, c.b, sources, depth, allowed_tuplelen)
             return Union{a, b}
         end
-    elseif isa(t, Core.TypeofVararg)
-        isa(c, Core.TypeofVararg) || return Vararg
-        VaT = _limit_type_size(unwrapva(t), unwrapva(c), sources, depth + 1, 0)
-        if isdefined(t, :N) && (isa(t.N, TypeVar) || (isdefined(c, :N) && t.N === c.N))
-            return Vararg{VaT, t.N}
-        end
-        return Vararg{VaT}
     elseif isa(t, DataType)
         if isa(c, Core.TypeofVararg)
             # Tuple{Vararg{T}} --> Tuple{T} is OK
@@ -161,7 +155,7 @@ function _limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVec
                         else
                             cPi = Any
                         end
-                        Q[i] = _limit_type_size(Q[i], cPi, sources, depth + 1, 0)
+                        Q[i] = __limit_type_size(Q[i], cPi, sources, depth + 1, 0)
                     end
                     return Tuple{Q...}
                 end
@@ -180,6 +174,20 @@ function _limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVec
         return widert
     end
     return Any
+end
+
+# helper function of `_limit_type_size`, which has the right to take and return `Vararg`
+function __limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVector, depth::Int, allowed_tuplelen::Int)
+    if isa(t, Core.TypeofVararg)
+        isa(c, Core.TypeofVararg) || return Vararg
+        VaT = _limit_type_size(unwrapva(t), unwrapva(c), sources, depth + 1, 0)
+        if isdefined(t, :N) && (isa(t.N, TypeVar) || (isdefined(c, :N) && t.N === c.N))
+            return Vararg{VaT, t.N}
+        end
+        return Vararg{VaT}
+    else
+        return _limit_type_size(t, c, sources, depth, allowed_tuplelen)
+    end
 end
 
 function type_more_complex(@nospecialize(t), @nospecialize(c), sources::SimpleVector, depth::Int, tupledepth::Int, allowed_tuplelen::Int)
@@ -603,10 +611,11 @@ function tmeet(@nospecialize(v), @nospecialize(t))
         @assert widev <: Tuple
         new_fields = Vector{Any}(undef, length(v.fields))
         for i = 1:length(new_fields)
-            if isa(v.fields[i], Core.TypeofVararg)
-                new_fields[i] = v.fields[i]
+            vfi = v.fields[i]
+            if isa(vfi, Core.TypeofVararg)
+                new_fields[i] = vfi
             else
-                new_fields[i] = tmeet(v.fields[i], widenconst(getfield_tfunc(t, Const(i))))
+                new_fields[i] = tmeet(vfi, widenconst(getfield_tfunc(t, Const(i))))
                 if new_fields[i] === Bottom
                     return Bottom
                 end
